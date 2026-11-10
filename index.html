@@ -452,6 +452,7 @@ textarea.in2{resize:none;min-height:5.6em;line-height:1.55;text-align:center;ove
 #hint{text-shadow:0 1px 2px rgba(60,35,25,.55),0 0 14px rgba(60,35,25,.35)!important}
 #stage{--s:max(calc(100vw/720),calc(100svh/1280))}
 #hint{bottom:calc(100svh - (100svh - 1280*var(--s))/2 - 637*var(--s) + 6px)}
+.b:disabled{opacity:.6;cursor:default}
 </style>
 <style id="smooth">
 /* ===== Smooth v2: حركات على الـGPU بس ===== */
@@ -658,12 +659,41 @@ html.so #fog i{animation-play-state:paused!important}
     for(var i=0;i<4;i++)if(v[i]!==last[i]){var e=$('cd'+i);e.textContent=N(v[i]);last[i]=v[i]}}
   cd();setInterval(cd,1000);
   var tt;function toast(m){var t=$('toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on')},3200)}
-  function rs(ok){var el=$('rn'),n=el.value.trim();
+  /* ===== RSVP → Google Sheet ===== */
+  var SHEET_URL='https://script.google.com/macros/s/AKfycbzedOM5P7MH4z_tFnFlkZh1ANObt7z3sP3APGMdQijaHEfb9jWxcoOzq473hKKGkOwRBw/exec'; /* حط هنا رابط الـ Web App بعد ما تنشر الـ Apps Script */
+  var busy=false,sent=false,rid=null;
+  function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,10)}
+  function postSheet(data){
+    var body=JSON.stringify(data),H={'Content-Type':'text/plain;charset=utf-8'};
+    return fetch(SHEET_URL,{method:'POST',headers:H,body:body,redirect:'follow'})
+      .then(function(r){return r.json()})
+      .then(function(j){if(!j||!j.ok)throw {server:true};return true})
+      .catch(function(e){
+        if(e&&e.server)throw e;
+        /* لو المتصفح منع قراءة الرد، نبعت تاني بنفس الـ id (الشيت بيتجاهل المكرر) */
+        return fetch(SHEET_URL,{method:'POST',mode:'no-cors',headers:H,body:body}).then(function(){return true});
+      });
+  }
+  function setBusy(b){busy=b;$('ry').disabled=b||sent;$('rx').disabled=b||sent}
+  function rs(ok){
+    if(busy||sent)return;
+    var el=$('rn'),n=el.value.trim();
     if(!n){el.classList.remove('bad');void el.offsetWidth;el.classList.add('bad');el.focus();toast('Please enter your name first');return}
-    var m='Hello, this is '+n+(ok?'. I would be delighted to confirm my attendance':'. I regret that I am unable to attend')+' at the wedding of '+C.n1+' & '+C.n2+(ok?'. Number of guests: '+$('rg').value:'')+'.';
-    var w=$('rm').value.trim();if(w)m+=' My message for you: '+w;
-    toast('Opening WhatsApp…');
-    window.open('https://wa.me/'+C.phone.replace(/\D/g,'')+'?text='+encodeURIComponent(m),'_blank')}
+    if(!/^https:\/\/script\.google(usercontent)?\.com\//.test(SHEET_URL)){toast('RSVP is not connected yet');console.warn('SHEET_URL is not set');return}
+    if(!rid)rid=uid();
+    setBusy(true);
+    var btn=ok?$('ry'):$('rx'),label=btn.innerHTML;btn.innerHTML='Sending…';
+    postSheet({id:rid,name:n.slice(0,80),attending:ok?'Yes':'No',guests:ok?Number($('rg').value)||1:0,message:$('rm').value.trim().slice(0,300)})
+      .then(function(){
+        sent=true;btn.innerHTML=ok?'Received &nbsp;♥':'Received';
+        $('ry').disabled=true;$('rx').disabled=true;el.readOnly=true;
+        toast(ok?'Thank you, see you there ♥':'Thank you for letting us know');
+      })
+      .catch(function(){
+        btn.innerHTML=label;setBusy(false);
+        toast('Could not send, please try again');
+      });
+  }
   $('ry').onclick=function(){rs(1)};$('rx').onclick=function(){rs(0)};
   $('rn').addEventListener('animationend',function(){this.classList.remove('bad')});
   var o=document.querySelectorAll('.orn');for(var i=1;i<o.length;i++)o[i].src=o[0].src;
